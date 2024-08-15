@@ -1,4 +1,4 @@
-# GradDISN: Deep Implicit Surface Network with Gradient-based Loss for Detailed 3D Reconstruction
+# GradDISN: Gradient-based Deep Implicit Surface Network for Detailed 3D Reconstruction
 We propose incoporating occupancy gradients into the loss function to achieve more accurate reconstruction of fine-grained details in 3D mesh.
 This implementation is based on [DISN](https://github.com/laughtervv/DISN). Please refer to the [README](https://github.com/laughtervv/DISN/blob/master/README.md) for general instructions, with specific exceptions noted in the "Prepare SDF files and marching cube ground truth model" section under 'Data Preparation' below.
 
@@ -7,7 +7,7 @@ To generate SDF files for GradDISN, we have added a 'model' argument to argparse
   mkdir log
   cd {DISN}
   source isosurface/LIB_PATH
-  nohup python -u preprocessing/create_point_sdf_grid.py --model {'DISN' or 'GradDISN'} --model {default 'GradDISN', but 'DISN' if you want to run original DISN} --thread_num {recommend 9} --category {default 'all', but can be single category like 'chair'} &> log/create_sdf.log &
+  nohup python -u preprocessing/create_point_sdf_grid.py --model {default 'GradDISN', but 'DISN' if you prefer to run original DISN} --thread_num {recommend 9} --category {default 'all', but can be single category like 'chair'} &> log/create_sdf.log &
   ```
 
 
