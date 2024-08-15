@@ -10,11 +10,14 @@ To generate SDF files for GradDISN, we have added a 'model' argument to argparse
   nohup python -u preprocessing/create_point_sdf_grid.py --model {'DISN' or 'GradDISN'} --model {default 'GradDISN', but 'DISN' if you want to run original DISN} --thread_num {recommend 9} --category {default 'all', but can be single category like 'chair'} &> log/create_sdf.log &
   ```
 
+
 ## Proposed Method
 <img src="./assets/occupancy.PNG"/>
 Consider a 3D mesh consisting of line, plane, and cube. We can compute the occupancy difference between adjacent points along the x, y, and z axes. 
-For instance, the occupancy differences for a yellow point might be 0 along the x-axis, 1 along the y-axis, and 2 along the z-axis. 
+For instance, the occupancy differences for a black point might be 0 along all three axes. 
+
 We've found that fine-grained details can be reconstructed more accurately by assigning a larger gradient-based weight in the loss function proportional to the number of axes with an occupancy difference of 2.
+
 
 ## Results
 <img src="./assets/results.PNG"/>
