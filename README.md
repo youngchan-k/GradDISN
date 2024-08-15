@@ -14,13 +14,13 @@ To generate SDF files for GradDISN, we have added a 'model' argument to argparse
 ## Proposed Method
 <img src="./assets/occupancy.PNG"/>
 Consider a 3D mesh consisting of line, plane, and cube. We can compute the occupancy difference between adjacent points along the x, y, and z axes. 
-For instance, the occupancy differences for a black point might be 0 along all three axes. 
+For instance, the occupancy differences for a black point are 0 along all three axes. 
 
 We've found that fine-grained details can be reconstructed more accurately by assigning a larger gradient-based weight in the loss function proportional to the number of axes with an occupancy difference of 2.
 
 
 ## Results
 <img src="./assets/results.PNG"/>
-Compared to DISN, GradDISN demonstrates a greater ability in reconstructing delicate features, such as wings and antennae.
+GradDISN demonstrates a greater ability in reconstructing delicate features, such as wings and antennae.
 
 
