@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--thread_num', type=int, default='9', help='how many objs are creating at the same time')
 parser.add_argument('--category', type=str, default="all", help='Which single class to generate on [default: all, can '
                                                                 'be chair or plane, etc.]')
+parser.add_argument('--model', type=str, default="DISN", help='Specify the model to select')
 FLAGS = parser.parse_args()
 
 def get_sdf_value(sdf_pt, sdf_params_ph, sdf_ph, sdf_res):
@@ -85,7 +86,14 @@ def sample_sdf(cat_id, num_sample, bandwidth, iso_val, sdf_dict, sdf_res):
     y = np.linspace(params[1], params[4], num=sdf_res + 1).astype(np.float32)
     z = np.linspace(params[2], params[5], num=sdf_res + 1).astype(np.float32)
     dis = sdf_values - iso_val
-    sdf_pt_val = np.zeros((0,4), dtype=np.float32)
+    
+    # DISN
+    if FLAGS.model == "DISN":
+        sdf_pt_val = np.zeros((0,4), dtype=np.float32)
+    # GradDISN
+    elif FLAGS.model == "GradDISN":
+        sdf_pt_val = np.zeros((0,5), dtype=np.float32)
+    
     for i in range(len(percentages)):
         ind = np.argwhere((dis >= percentages[i][0]) & (dis < percentages[i][1]))
         if len(ind) < percentages[i][2]:
@@ -96,15 +104,60 @@ def sample_sdf(cat_id, num_sample, bandwidth, iso_val, sdf_dict, sdf_res):
             print("len(ind) ==0 for cate i")
             continue
         choice = np.random.randint(len(ind), size=percentages[i][2])
-        choosen_ind = ind[choice]
+        
+        choosen_ind = ind[choice]   # x_ind + y_ind * (sdf_res + 1) + z_ind * (sdf_res + 1)**2
         x_ind = choosen_ind % (sdf_res + 1)
         y_ind = (choosen_ind // (sdf_res + 1)) % (sdf_res + 1)
         z_ind = choosen_ind // (sdf_res + 1) ** 2
-        x_vals = x[x_ind]
-        y_vals = y[y_ind]
-        z_vals = z[z_ind]
-        vals = sdf_values[choosen_ind]
-        sdf_pt_val_bin = np.concatenate((x_vals, y_vals, z_vals, vals), axis = -1)
+        
+        # DISN
+        if FLAGS.model == "DISN":
+            x_vals = x[x_ind]
+            y_vals = y[y_ind]
+            z_vals = z[z_ind]
+            vals = sdf_values[choosen_ind]
+            sdf_pt_val_bin = np.concatenate((x_vals, y_vals, z_vals, vals), axis = -1)
+        
+        # GradDISN
+        elif FLAGS.model == "GradDISN":
+            # Normalize the x, y, z values to the range [-1, 1] based on the provided parameters
+            x_vals = (x[x_ind] - ((params[3] + params[0])/2)) * (2/(params[3] - params[0]))
+            y_vals = (y[y_ind] - ((params[4] + params[1])/2)) * (2/(params[4] - params[1]))
+            z_vals = (z[z_ind] - ((params[5] + params[2])/2)) * (2/(params[5] - params[2]))
+            
+            # Indices for neighboring points in the x, y, z direction (2 steps before and after)
+            choosen_ind_x_prev = choosen_ind - 2
+            choosen_ind_x_next = choosen_ind + 2
+            
+            choosen_ind_y_prev = choosen_ind - 2 * (sdf_res + 1)
+            choosen_ind_y_next = choosen_ind + 2 * (sdf_res + 1)
+            
+            choosen_ind_z_prev = choosen_ind - 2 * (sdf_res + 1)**2
+            choosen_ind_z_next = choosen_ind + 2 * (sdf_res + 1)**2
+
+            # Extract the SDF values at the current index and its neighbors
+            vals = sdf_values[choosen_ind]
+
+            vals_x_prev = sdf_values[choosen_ind_x_prev]
+            vals_x_next = sdf_values[choosen_ind_x_next]
+            
+            vals_y_prev = sdf_values[choosen_ind_y_prev]
+            vals_y_next = sdf_values[choosen_ind_y_next]
+
+            vals_z_prev = sdf_values[choosen_ind_z_prev]
+            vals_z_next = sdf_values[choosen_ind_z_next]
+
+            # Compute the gradient in the x, y, and z directions using finite differences
+            gradient_x = abs(vals - vals_x_prev) + abs(vals - vals_x_next)
+            gradient_y = abs(vals - vals_y_prev) + abs(vals - vals_y_next)
+            gradient_z = abs(vals - vals_z_prev) + abs(vals - vals_z_next)
+
+            # Combine the gradients from the three directions and take the maximum value across them
+            gradient = np.max(np.concatenate([gradient_x, gradient_y, gradient_z], axis = 1), axis = 1)
+            gradient = np.expand_dims(gradient, axis = 1)
+
+            sdf_pt_val_bin = np.concatenate((x_vals, y_vals, z_vals, vals, gradient), axis = -1)
+        
         # print("np.min(vals), np.mean(vals), np.max(vals)", np.min(vals), np.mean(vals), np.max(vals))
         print("sdf_pt_val_bin.shape", sdf_pt_val_bin.shape)
         sdf_pt_val = np.concatenate((sdf_pt_val, sdf_pt_val_bin), axis = 0)

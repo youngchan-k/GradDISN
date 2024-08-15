@@ -21,6 +21,7 @@ def placeholder_inputs(batch_size, num_points, img_size, num_sample_pc = 256, sc
             imgs_pl = tf.placeholder(tf.float32, shape=(batch_size, img_size[0], img_size[1], 4))
         else:
             imgs_pl = tf.placeholder(tf.float32, shape=(batch_size, img_size[0], img_size[1], 3))
+        gradient = tf.placeholder(tf.float32, shape=(batch_size, num_sample_pc, 1))
         sdf_pl = tf.placeholder(tf.float32, shape=(batch_size, num_sample_pc, 1))
         sdf_params_pl = tf.placeholder(tf.float32, shape=(batch_size, 6))
         trans_mat_pl = tf.placeholder(tf.float32, shape=(batch_size, 4, 3))
@@ -28,6 +29,7 @@ def placeholder_inputs(batch_size, num_points, img_size, num_sample_pc = 256, sc
     sdf['pc'] = pc_pl
     sdf['sample_pc'] = sample_pc_pl
     sdf['sample_pc_rot'] = sample_pc_rot_pl
+    sdf['gradient'] = gradient
     sdf['imgs'] = imgs_pl
     sdf['sdf'] = sdf_pl
     sdf['sdf_params'] = sdf_params_pl
@@ -52,6 +54,7 @@ def get_model(ref_dict, num_point, is_training, bn=False, bn_decay=None, img_siz
     ref_sample_pc_rot = ref_dict['sample_pc_rot']
     ref_sdf = ref_dict['sdf']
     ref_trans_mat = ref_dict['trans_mat']
+    ref_gradient = ref_dict['gradient']
 
     batch_size = ref_img.get_shape()[0].value
 
@@ -60,6 +63,7 @@ def get_model(ref_dict, num_point, is_training, bn=False, bn_decay=None, img_siz
     end_points['ref_pc'] = ref_pc
     end_points['ref_sdf'] = ref_sdf #* 10
     end_points['ref_img'] = ref_img # B*H*W*3|4
+    end_points['gradient'] = ref_gradient
 
     # Image extract features
     if ref_img.shape[1] != img_size or ref_img.shape[2] != img_size:
@@ -256,6 +260,8 @@ def get_loss(end_points, sdf_weight=10., regularization=True, mask_weight = 4.,
 
     pred_sdf = end_points['pred_sdf']
     gt_sdf = end_points['ref_sdf']
+    gradient = end_points['gradient']        
+
     ################
     # Compute loss #
     ################
@@ -268,7 +274,7 @@ def get_loss(end_points, sdf_weight=10., regularization=True, mask_weight = 4.,
         batch_size = FLAGS.batch_size
     if FLAGS.binary:
         label_sdf = tf.reshape(tf.cast(tf.math.greater(gt_sdf, tf.constant(0.0)), dtype=tf.int32),
-                               (batch_size, num_sample_points))
+                            (batch_size, num_sample_points))
         accuracy = tf.reduce_mean(tf.cast(tf.equal(label_sdf, tf.argmax(pred_sdf, axis=2, output_type=tf.int32)), dtype=tf.float32))
         end_points['losses']['accuracy'] = accuracy
         sdf_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=label_sdf, logits=pred_sdf)
@@ -283,13 +289,14 @@ def get_loss(end_points, sdf_weight=10., regularization=True, mask_weight = 4.,
         accuracy = tf.reduce_mean(tf.cast(tf.equal(gt_sign, pred_sign), dtype=tf.float32))
         end_points['losses']['accuracy'] = accuracy
         weight_mask = tf.to_float(tf.less_equal(gt_sdf, tf.constant(0.01))) * mask_weight \
-                      + tf.to_float(tf.greater(gt_sdf, tf.constant(0.01)))
+                        + tf.to_float(tf.greater(gt_sdf, tf.constant(0.01)))
         end_points['weighed_mask'] = weight_mask
-        sdf_loss = tf.reduce_mean(tf.abs(gt_sdf * sdf_weight - pred_sdf) * weight_mask)
+        sdf_loss = tf.reduce_mean(tf.abs(gt_sdf * sdf_weight - pred_sdf) * gradient)    # weight_mask -> gradient
         end_points['losses']['sdf_loss_realvalue'] = tf.reduce_mean(tf.abs(gt_sdf - pred_sdf / sdf_weight))
         sdf_loss = sdf_loss * 1000
     end_points['losses']['sdf_loss'] = sdf_loss
     loss = sdf_loss
+
     ############### weight decay
     if regularization:
         vgg_regularization_loss = tf.add_n(slim.losses.get_regularization_losses())
@@ -297,4 +304,5 @@ def get_loss(end_points, sdf_weight=10., regularization=True, mask_weight = 4.,
         end_points['losses']['regularization'] = (vgg_regularization_loss + decoder_regularization_loss)
         loss += (vgg_regularization_loss + decoder_regularization_loss)
     end_points['losses']['overall_loss'] = loss
+        
     return loss, end_points
