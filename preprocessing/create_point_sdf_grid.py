@@ -15,7 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--thread_num', type=int, default='9', help='how many objs are creating at the same time')
 parser.add_argument('--category', type=str, default="all", help='Which single class to generate on [default: all, can '
                                                                 'be chair or plane, etc.]')
-parser.add_argument('--model', type=str, default="DISN", help='Specify the model to select')
+parser.add_argument('--model', type=str, default="GradDISN", help='Specify the model to select')
 FLAGS = parser.parse_args()
 
 def get_sdf_value(sdf_pt, sdf_params_ph, sdf_ph, sdf_res):
