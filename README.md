@@ -1,5 +1,5 @@
 # GradDISN: Gradient-based Deep Implicit Surface Network for Detailed 3D Reconstruction
-We propose incoporating occupancy gradients into the loss function to achieve more accurate reconstruction of fine-grained details in 3D mesh.
+We propose incoporating occupancy gradient-based weight into the loss function to achieve more accurate reconstruction of fine-grained details in 3D mesh.
 This implementation is based on [DISN](https://github.com/laughtervv/DISN). Please refer to the [README](https://github.com/laughtervv/DISN/blob/master/README.md) for general instructions, with specific exceptions noted in the "Prepare SDF files and marching cube ground truth model" section under 'Data Preparation' below.
 
 To generate SDF files for GradDISN, we have added a 'model' argument to argparse, allowing you to select between the original 'DISN' and 'GradDISN'. The default setting is 'GradDISN', but you can choose 'DISN' if you prefer to run the original version.
