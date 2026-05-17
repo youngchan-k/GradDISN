@@ -11,6 +11,7 @@ import cv2
 import sys
 import h5py
 import time
+import shutil
 from tensorflow.contrib.framework.python.framework import checkpoint_utils
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 print(os.path.join(os.path.dirname(BASE_DIR), 'data'))
@@ -90,8 +91,8 @@ TEST_RESULT_PATH = os.path.join(LOG_DIR, 'test_results_'+str(time.time()))
 if not os.path.exists(VALID_RESULT_PATH): os.mkdir(VALID_RESULT_PATH)
 if not os.path.exists(TEST_RESULT_PATH): os.mkdir(TEST_RESULT_PATH)
 
-os.system('cp %s.py %s' % (os.path.splitext(model.__file__)[0], LOG_DIR))
-os.system('cp %s.py %s' % (os.path.splitext(__file__)[0], LOG_DIR))
+shutil.copy2(os.path.splitext(model.__file__)[0] + '.py', LOG_DIR)
+shutil.copy2(__file__, LOG_DIR)
 LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train_%s.txt' % str(datetime.now())), 'w')
 LOG_FOUT.write(str(FLAGS)+'\n')
 
@@ -288,11 +289,11 @@ def train():
 
             ######### Loading Checkpoint ###############
             # CNN(Pretrained from ImageNet)
-            # if PRETRAINED_CNN_MODEL_FILE is not '':
+            # if PRETRAINED_CNN_MODEL_FILE != '':
             #     if not load_model(sess, PRETRAINED_CNN_MODEL_FILE, 'vgg_16', strict=True):
             #         return
 
-            if PRETRAINED_PN_MODEL_FILE is not '':
+            if PRETRAINED_PN_MODEL_FILE != '':
                 if not load_model(sess, PRETRAINED_PN_MODEL_FILE, ['refpc_reconstruction','sdfprediction'], strict=True):
                     return 
             # Overall  

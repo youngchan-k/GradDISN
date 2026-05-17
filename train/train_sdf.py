@@ -6,6 +6,7 @@ import os
 import cv2
 import sys
 import time
+import shutil
 from tensorflow.contrib.framework.python.framework import checkpoint_utils
 BASE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 print(os.path.join(BASE_DIR, 'models'))
@@ -95,8 +96,8 @@ if not os.path.exists(RESULT_PATH): os.mkdir(RESULT_PATH)
 VALID_RESULT_PATH = os.path.join(LOG_DIR, 'valid_results')
 if not os.path.exists(VALID_RESULT_PATH): os.mkdir(VALID_RESULT_PATH)
 
-os.system('cp %s.py %s' % (os.path.splitext(model.__file__)[0], LOG_DIR))
-os.system('cp train_sdf.py %s' % (LOG_DIR))
+shutil.copy2(os.path.splitext(model.__file__)[0] + '.py', LOG_DIR)
+shutil.copy2(__file__, LOG_DIR)
 LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
 LOG_FOUT.write(str(FLAGS)+'\n')
 
@@ -273,11 +274,11 @@ def train():
 
             ######### Loading Checkpoint ###############
             # CNN(Pretrained from ImageNet)
-            if PRETRAINED_CNN_MODEL_FILE is not '':
+            if PRETRAINED_CNN_MODEL_FILE != '':
                 if not load_model(sess, PRETRAINED_CNN_MODEL_FILE, 'vgg_16', strict=True):
                     return
 
-            if PRETRAINED_PN_MODEL_FILE is not '':
+            if PRETRAINED_PN_MODEL_FILE != '':
                 if not load_model(sess, PRETRAINED_PN_MODEL_FILE, ['refpc_reconstruction', 'sdfprediction'],
                                   strict=True):
                     return
@@ -373,6 +374,7 @@ def train_one_epoch(sess, ops, train_writer, saver):
                      ops['input_pls']['sample_pc']: batch_data['sdf_pt'],
                      ops['input_pls']['sample_pc_rot']: batch_data['sdf_pt_rot'],
                      ops['input_pls']['sdf']: batch_data['sdf_val'] - 0.003,
+                     ops['input_pls']['gradient']: batch_data['gradient'],
                      ops['input_pls']['sdf_params']: batch_data['sdf_params'],
                      ops['input_pls']['imgs']: batch_data['img'],
                      ops['input_pls']['trans_mat']: batch_data['trans_mat']}

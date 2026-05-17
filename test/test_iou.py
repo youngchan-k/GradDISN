@@ -180,12 +180,12 @@ def iou_cat(pred_dir, gt_dir, test_lst_f, dim=110):
         test_objs = f.readlines()
         for obj_id in test_objs:
             obj_id = obj_id.rstrip('\r\n')
-            src_path = os.path.join(gt_dir, obj_id, "isosurf.obj")
-            src_path_lst = [src_path for i in range(len(pred_dict[obj_id]))]
-            dim_lst = [dim for i in range(len(pred_dict[obj_id]))]
             if obj_id not in pred_dict.keys():
                 print("skip error obj id, no key:", obj_id)
                 continue
+            src_path = os.path.join(gt_dir, obj_id, "isosurf.obj")
+            src_path_lst = [src_path for i in range(len(pred_dict[obj_id]))]
+            dim_lst = [dim for i in range(len(pred_dict[obj_id]))]
             pred_path_lst = pred_dict[obj_id]
             if len(pred_path_lst) == 0:
                 print("skip error obj id:", obj_id)
@@ -212,7 +212,7 @@ def iou_pymesh(mesh_src, mesh_pred, dim=FLAGS.dim):
         grid1.insert_mesh(mesh1)
         grid1.create_grid()
 
-        ind1 = ((grid1.mesh.vertices + 1.1) / 2.4 * dim).astype(np.int)
+        ind1 = ((grid1.mesh.vertices + 1.1) / 2.4 * dim).astype(int)
         v1 = np.zeros([dim, dim, dim])
         v1[ind1[:,0], ind1[:,1], ind1[:,2]] = 1
 
@@ -222,7 +222,7 @@ def iou_pymesh(mesh_src, mesh_pred, dim=FLAGS.dim):
         grid2.insert_mesh(mesh2)
         grid2.create_grid()
 
-        ind2 = ((grid2.mesh.vertices + 1.1) / 2.4 * dim).astype(np.int)
+        ind2 = ((grid2.mesh.vertices + 1.1) / 2.4 * dim).astype(int)
         v2 = np.zeros([dim, dim, dim])
         v2[ind2[:,0], ind2[:,1], ind2[:,2]] = 1
 
@@ -231,6 +231,7 @@ def iou_pymesh(mesh_src, mesh_pred, dim=FLAGS.dim):
         return [float(intersection) / union, mesh_pred]
     except:
         print("error mesh {} / {}".format(mesh_src, mesh_pred))
+        return [0.0, mesh_pred]
 
 
 if __name__ == "__main__":

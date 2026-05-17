@@ -21,7 +21,9 @@ def placeholder_inputs(batch_size, num_points, img_size, num_sample_pc = 256, sc
             imgs_pl = tf.placeholder(tf.float32, shape=(batch_size, img_size[0], img_size[1], 4))
         else:
             imgs_pl = tf.placeholder(tf.float32, shape=(batch_size, img_size[0], img_size[1], 3))
-        gradient = tf.placeholder(tf.float32, shape=(batch_size, num_sample_pc, 1))
+        gradient = tf.placeholder_with_default(
+            tf.ones((batch_size, num_sample_pc, 1), dtype=tf.float32),
+            shape=(batch_size, num_sample_pc, 1))
         sdf_pl = tf.placeholder(tf.float32, shape=(batch_size, num_sample_pc, 1))
         sdf_params_pl = tf.placeholder(tf.float32, shape=(batch_size, 6))
         trans_mat_pl = tf.placeholder(tf.float32, shape=(batch_size, 4, 3))

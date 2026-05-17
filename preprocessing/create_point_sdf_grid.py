@@ -12,10 +12,11 @@ import argparse
 CUR_PATH = os.path.dirname(os.path.realpath(__file__))
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--thread_num', type=int, default='9', help='how many objs are creating at the same time')
+parser.add_argument('--thread_num', type=int, default=9, help='how many objs are creating at the same time')
 parser.add_argument('--category', type=str, default="all", help='Which single class to generate on [default: all, can '
                                                                 'be chair or plane, etc.]')
-parser.add_argument('--model', type=str, default="GradDISN", help='Specify the model to select')
+parser.add_argument('--model', type=str, choices=["DISN", "GradDISN"], default="GradDISN",
+                    help='SDF sample format to write. GradDISN adds a gradient weight column.')
 FLAGS = parser.parse_args()
 
 def get_sdf_value(sdf_pt, sdf_params_ph, sdf_ph, sdf_res):
@@ -87,15 +88,22 @@ def sample_sdf(cat_id, num_sample, bandwidth, iso_val, sdf_dict, sdf_res):
     z = np.linspace(params[2], params[5], num=sdf_res + 1).astype(np.float32)
     dis = sdf_values - iso_val
     
-    # DISN
     if FLAGS.model == "DISN":
-        sdf_pt_val = np.zeros((0,4), dtype=np.float32)
-    # GradDISN
-    elif FLAGS.model == "GradDISN":
-        sdf_pt_val = np.zeros((0,5), dtype=np.float32)
+        sdf_pt_val = np.zeros((0, 4), dtype=np.float32)
+    else:
+        sdf_pt_val = np.zeros((0, 5), dtype=np.float32)
     
     for i in range(len(percentages)):
         ind = np.argwhere((dis >= percentages[i][0]) & (dis < percentages[i][1]))
+        if FLAGS.model == "GradDISN":
+            flat_ind = ind.reshape(-1)
+            x_ind_all = flat_ind % (sdf_res + 1)
+            y_ind_all = (flat_ind // (sdf_res + 1)) % (sdf_res + 1)
+            z_ind_all = flat_ind // (sdf_res + 1) ** 2
+            valid = ((x_ind_all >= 2) & (x_ind_all <= sdf_res - 2) &
+                     (y_ind_all >= 2) & (y_ind_all <= sdf_res - 2) &
+                     (z_ind_all >= 2) & (z_ind_all <= sdf_res - 2))
+            ind = flat_ind[valid].reshape(-1, 1)
         if len(ind) < percentages[i][2]:
             if i < len(percentages)-1:
                 percentages[i+1][2] += percentages[i][2] - len(ind)
@@ -110,7 +118,6 @@ def sample_sdf(cat_id, num_sample, bandwidth, iso_val, sdf_dict, sdf_res):
         y_ind = (choosen_ind // (sdf_res + 1)) % (sdf_res + 1)
         z_ind = choosen_ind // (sdf_res + 1) ** 2
         
-        # DISN
         if FLAGS.model == "DISN":
             x_vals = x[x_ind]
             y_vals = y[y_ind]
@@ -118,12 +125,10 @@ def sample_sdf(cat_id, num_sample, bandwidth, iso_val, sdf_dict, sdf_res):
             vals = sdf_values[choosen_ind]
             sdf_pt_val_bin = np.concatenate((x_vals, y_vals, z_vals, vals), axis = -1)
         
-        # GradDISN
-        elif FLAGS.model == "GradDISN":
-            # Normalize the x, y, z values to the range [-1, 1] based on the provided parameters
-            x_vals = (x[x_ind] - ((params[3] + params[0])/2)) * (2/(params[3] - params[0]))
-            y_vals = (y[y_ind] - ((params[4] + params[1])/2)) * (2/(params[4] - params[1]))
-            z_vals = (z[z_ind] - ((params[5] + params[2])/2)) * (2/(params[5] - params[2]))
+        else:
+            x_vals = x[x_ind]
+            y_vals = y[y_ind]
+            z_vals = z[z_ind]
             
             # Indices for neighboring points in the x, y, z direction (2 steps before and after)
             choosen_ind_x_prev = choosen_ind - 2
@@ -389,24 +394,24 @@ if __name__ == "__main__":
 
     create_sdf("./isosurface/computeDistanceField",
                "./isosurface/computeMarchingCubes",
-               "source ./home/xharlie/dev/isosurface/LIB_PATH", 32768, 0.1,
+               "source ./isosurface/LIB_PATH", 32768, 0.1,
                256, 1.2, cats, raw_dirs,
                lst_dir, 0.003, 16384, ish5=True, normalize=True, g=0.03, version=1, skip_all_exist=False)
 
     create_sdf("./isosurface/computeDistanceField",
                "./isosurface/computeMarchingCubes",
-               "source ./home/xharlie/dev/isosurface/LIB_PATH", 32768, 0.1,
+               "source ./isosurface/LIB_PATH", 32768, 0.1,
                256, 1.2, cats, raw_dirs,
                lst_dir, 0.003, 16384, ish5=True, normalize=True, g=0.05, version=1, skip_all_exist=False)
 
     create_sdf("./isosurface/computeDistanceField",
                "./isosurface/computeMarchingCubes",
-               "source ./home/xharlie/dev/isosurface/LIB_PATH", 32768, 0.1,
+               "source ./isosurface/LIB_PATH", 32768, 0.1,
                256, 1.2, cats, raw_dirs,
                lst_dir, 0.003, 16384, ish5=True, normalize=True, g=0.06, version=1, skip_all_exist=False)
 
     create_sdf("./isosurface/computeDistanceField",
                "./isosurface/computeMarchingCubes",
-               "source ./home/xharlie/dev/isosurface/LIB_PATH", 32768, 0.1,
+               "source ./isosurface/LIB_PATH", 32768, 0.1,
                256, 1.2, cats, raw_dirs,
                lst_dir, 0.003, 16384, ish5=True, normalize=True, g=0.00, version=1, skip_all_exist=False)

@@ -112,10 +112,10 @@ class Pt_sdf_img(threading.Thread):
     def getitem(self, index):
         cat_id, obj, num = self.listinfo[index]
         sdf_file = self.get_sdf_h5_filenm(cat_id, obj)
-        ori_pt, ori_sdf_val, sample_pt, sample_sdf_val, norm_params, sdf_params\
+        ori_pt, ori_sdf_val, sample_pt, sample_sdf_val, sample_gradient, norm_params, sdf_params\
             = self.get_sdf_h5(sdf_file, cat_id, obj)
         img_dir, img_file_lst = self.get_img_dir(cat_id, obj)
-        return ori_pt, ori_sdf_val, sample_pt, sample_sdf_val, norm_params,\
+        return ori_pt, ori_sdf_val, sample_pt, sample_sdf_val, sample_gradient, norm_params,\
                sdf_params, img_dir, img_file_lst, cat_id, obj, num
 
     def get_sdf_h5(self, sdf_h5_file, cat_id, obj):
@@ -131,15 +131,20 @@ class Pt_sdf_img(threading.Thread):
                 ori_sdf_val = None
                 if sample_sdf.shape[1] == 4:
                     sample_pt, sample_sdf_val = sample_sdf[:, :3], sample_sdf[:, 3]
+                    sample_gradient = np.ones_like(sample_sdf_val, dtype=np.float32)
+                elif sample_sdf.shape[1] >= 5:
+                    sample_pt, sample_sdf_val = sample_sdf[:, :3], sample_sdf[:, 3]
+                    sample_gradient = sample_sdf[:, 4]
                 else:
                     sample_pt, sample_sdf_val = None, sample_sdf[:, 0]
+                    sample_gradient = np.ones_like(sample_sdf_val, dtype=np.float32)
                 norm_params = h5_f['norm_params'][:]
                 sdf_params = h5_f['sdf_params'][:]
             else:
                 raise Exception(cat_id, obj, "no sdf and sample")
         finally:
             h5_f.close()
-        return ori_pt, ori_sdf_val, sample_pt, sample_sdf_val, norm_params, sdf_params
+        return ori_pt, ori_sdf_val, sample_pt, sample_sdf_val, sample_gradient, norm_params, sdf_params
 
     def get_img_old(self, img_dir, num, file_lst):
         params = np.loadtxt(img_dir + "/rendering_metadata.txt")
@@ -165,21 +170,21 @@ class Pt_sdf_img(threading.Thread):
                 img_arr[:, :, :4] = img_arr[:,:,:4] / 255.
             else:
                 img_raw = h5_f["img_arr"][:]
-                img_arr = img_raw[:, :, :3]
+                img_arr = img_raw[:, :, :3].astype(np.float32)
                 if self.FLAGS.augcolorfore or self.FLAGS.augcolorback:
                     r_aug = 60 * np.random.rand() - 30
                     g_aug = 60 * np.random.rand() - 30
                     b_aug = 60 * np.random.rand() - 30
                 if self.FLAGS.augcolorfore:
-                    img_arr[img_raw[:, :, 3] != 0, 0] + r_aug
-                    img_arr[img_raw[:, :, 3] != 0, 1] + g_aug
-                    img_arr[img_raw[:, :, 3] != 0, 2] + b_aug
+                    img_arr[img_raw[:, :, 3] != 0, 0] += r_aug
+                    img_arr[img_raw[:, :, 3] != 0, 1] += g_aug
+                    img_arr[img_raw[:, :, 3] != 0, 2] += b_aug
                 if self.FLAGS.backcolorwhite:
                     img_arr[img_raw[:, :, 3] == 0] = [255, 255, 255]
                 if self.FLAGS.augcolorback:
-                    img_arr[img_raw[:, :, 3] == 0, 0] + r_aug
-                    img_arr[img_raw[:, :, 3] == 0, 1] + g_aug
-                    img_arr[img_raw[:, :, 3] == 0, 2] + b_aug
+                    img_arr[img_raw[:, :, 3] == 0, 0] += r_aug
+                    img_arr[img_raw[:, :, 3] == 0, 1] += g_aug
+                    img_arr[img_raw[:, :, 3] == 0, 2] += b_aug
                 img_arr = np.clip(img_arr, 0, 255)
                 img_arr = img_arr.astype(np.float32) / 255.
 
@@ -242,6 +247,7 @@ class Pt_sdf_img(threading.Thread):
         batch_sdf_pt = np.zeros((self.batch_size, self.gen_num_pt, 3)).astype(np.float32)
         batch_sdf_pt_rot = np.zeros((self.batch_size, self.gen_num_pt, 3)).astype(np.float32)
         batch_sdf_val = np.zeros((self.batch_size, self.gen_num_pt, 1)).astype(np.float32)
+        batch_gradient = np.ones((self.batch_size, self.gen_num_pt, 1), dtype=np.float32)
         batch_norm_params = np.zeros((self.batch_size, 4)).astype(np.float32)
         batch_sdf_params = np.zeros((self.batch_size, 6)).astype(np.float32)
         if self.FLAGS.alpha:
@@ -258,7 +264,7 @@ class Pt_sdf_img(threading.Thread):
             single_obj = self.getitem(self.order[i])
             if single_obj == None:
                 raise Exception("single mesh is None!")
-            ori_pt, ori_sdf_val, sample_pt, sample_sdf_val, norm_params, sdf_params, img_dir, img_file_lst, cat_id, obj, num = single_obj
+            ori_pt, ori_sdf_val, sample_pt, sample_sdf_val, sample_gradient, norm_params, sdf_params, img_dir, img_file_lst, cat_id, obj, num = single_obj
             img, cam_mat, cam_pos, trans_mat, obj_rot_mat, regress_mat = self.get_img(img_dir, num)
             if ori_pt is not None:
                 cf_ref_choice = np.random.randint(ori_pt.shape[0], size=self.num_points)
@@ -272,6 +278,7 @@ class Pt_sdf_img(threading.Thread):
                         choice = np.asarray(random.sample(range(sample_pt.shape[0]), self.gen_num_pt), dtype=np.int32)
                     batch_sdf_pt[cnt, ...] = sample_pt[choice, :]
                     batch_sdf_val[cnt, :, 0] = sample_sdf_val[choice]
+                    batch_gradient[cnt, :, 0] = sample_gradient[choice]
                     if self.FLAGS.rot:
                         batch_sdf_pt_rot[cnt, ...] = np.dot(sample_pt[choice, :], obj_rot_mat)
                     else:
@@ -293,6 +300,7 @@ class Pt_sdf_img(threading.Thread):
         batch_data['sdf_pt'] = batch_sdf_pt
         batch_data['sdf_pt_rot'] = batch_sdf_pt_rot
         batch_data['sdf_val'] = batch_sdf_val
+        batch_data['gradient'] = batch_gradient
         batch_data['norm_params'] = batch_norm_params
         batch_data['sdf_params'] = batch_sdf_params
         batch_data['img'] = batch_img

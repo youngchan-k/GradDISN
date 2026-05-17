@@ -3,7 +3,7 @@ from datetime import datetime
 import tensorflow as tf
 import os
 import sys
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR) # model
 sys.path.append(os.path.join(BASE_DIR, 'models'))
 sys.path.append(os.path.join(BASE_DIR, 'data'))
@@ -208,6 +208,7 @@ def test_one_epoch(sess, ops):
                      ops['input_pls']['sample_pc']: batch_data['sdf_pt'],
                      ops['input_pls']['sample_pc_rot']: batch_data['sdf_pt_rot'],
                      ops['input_pls']['sdf']: batch_data['sdf_val'] - 0.003,
+                     ops['input_pls']['gradient']: batch_data['gradient'],
                      ops['input_pls']['imgs']: batch_data['img'],
                      ops['input_pls']['trans_mat']: batch_data['trans_mat']}
         output_list = [ops['end_points']['pred_sdf'], ops['end_points']['ref_img'],
